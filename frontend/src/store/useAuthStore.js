@@ -102,36 +102,42 @@ export const useAuthStore = create((set, get) => ({
 
     // Video call events - we'll import the store functions dynamically to avoid circular dependency
     socket.on("incoming-call", (data) => {
+      console.log("Received incoming call:", data);
       import("./useVideoCallStore.js").then((module) => {
         module.useVideoCallStore.getState().setIncomingCall(data);
       });
     });
 
     socket.on("call-answered", (data) => {
+      console.log("Call answered:", data);
       import("./useVideoCallStore.js").then((module) => {
         module.useVideoCallStore.getState().handleCallAnswered(data);
       });
     });
 
     socket.on("call-rejected", () => {
+      console.log("Call rejected");
       import("./useVideoCallStore.js").then((module) => {
         module.useVideoCallStore.getState().handleCallRejected();
       });
     });
 
     socket.on("call-ended", () => {
+      console.log("Call ended");
       import("./useVideoCallStore.js").then((module) => {
         module.useVideoCallStore.getState().handleCallEnded();
       });
     });
 
     socket.on("call-failed", (data) => {
+      console.log("Call failed:", data);
       import("./useVideoCallStore.js").then((module) => {
         module.useVideoCallStore.getState().handleCallFailed(data);
       });
     });
 
     socket.on("ice-candidate", (data) => {
+      console.log("Received ICE candidate:", data);
       import("./useVideoCallStore.js").then((module) => {
         module.useVideoCallStore.getState().handleIceCandidate(data);
       });

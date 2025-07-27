@@ -1,6 +1,7 @@
 import Navbar from "./components/Navbar";
 import IncomingCallModal from "./components/IncomingCallModal";
 import VideoCallModal from "./components/VideoCallModal";
+import VideoCallDebug from "./components/VideoCallDebug";
 
 import HomePage from "./pages/HomePage";
 import SignUpPage from "./pages/SignUpPage";
@@ -66,6 +67,7 @@ const App = () => {
         <>
           <IncomingCallModal />
           <VideoCallModal />
+          <VideoCallDebug />
         </>
       )}
     </div>

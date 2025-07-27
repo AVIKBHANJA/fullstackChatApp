@@ -39,7 +39,24 @@ export const useVideoCallStore = create((set, get) => ({
     };
 
     pc.ontrack = (event) => {
+      console.log("Received remote stream:", event.streams[0]);
       set({ remoteStream: event.streams[0] });
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log("Connection state changed:", pc.connectionState);
+      if (pc.connectionState === "failed") {
+        toast.error("Call connection failed");
+        get().endCall();
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log("ICE connection state changed:", pc.iceConnectionState);
+      if (pc.iceConnectionState === "failed") {
+        toast.error("Network connection failed");
+        get().endCall();
+      }
     };
 
     set({ peerConnection: pc });
@@ -67,6 +84,9 @@ export const useVideoCallStore = create((set, get) => ({
       const socket = useAuthStore.getState().socket;
       const { authUser } = useAuthStore.getState();
 
+      // Generate a temporary call ID for tracking
+      const tempCallId = `${authUser._id}-${targetUser._id}-${Date.now()}`;
+
       socket.emit("call-user", {
         targetUserId: targetUser._id,
         callerInfo: {
@@ -82,14 +102,13 @@ export const useVideoCallStore = create((set, get) => ({
           targetUser,
           type: "outgoing",
           status: "calling",
+          callId: tempCallId, // We'll update this when the call is answered
         },
         isInCall: true,
       });
     } catch (error) {
       console.error("Error starting call:", error);
-      toast.error(
-        "Failed to start call. Please check your camera and microphone permissions."
-      );
+      toast.error("Failed to start call. Please check your camera and microphone permissions.");
     }
   },
 
@@ -213,22 +232,31 @@ export const useVideoCallStore = create((set, get) => ({
   handleCallAnswered: async (data) => {
     const { peerConnection, currentCall } = get();
     if (peerConnection && currentCall) {
-      await peerConnection.setRemoteDescription(data.answer);
-      set({
-        currentCall: {
-          ...currentCall,
-          status: "connected",
-          callId: data.callId,
-        },
-      });
+      try {
+        await peerConnection.setRemoteDescription(data.answer);
+        set({
+          currentCall: {
+            ...currentCall,
+            status: "connected",
+            callId: data.callId,
+          },
+        });
+      } catch (error) {
+        console.error("Error handling call answered:", error);
+        toast.error("Failed to establish call connection");
+      }
     }
   },
 
   // Handle ICE candidate
   handleIceCandidate: async (data) => {
     const { peerConnection } = get();
-    if (peerConnection) {
-      await peerConnection.addIceCandidate(data.candidate);
+    if (peerConnection && peerConnection.remoteDescription) {
+      try {
+        await peerConnection.addIceCandidate(data.candidate);
+      } catch (error) {
+        console.error("Error adding ICE candidate:", error);
+      }
     }
   },
 
