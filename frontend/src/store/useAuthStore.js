@@ -3,7 +3,8 @@ import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
-const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
+const BASE_URL =
+  import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -97,6 +98,43 @@ export const useAuthStore = create((set, get) => ({
 
     socket.on("getOnlineUsers", (userIds) => {
       set({ onlineUsers: userIds });
+    });
+
+    // Video call events - we'll import the store functions dynamically to avoid circular dependency
+    socket.on("incoming-call", (data) => {
+      import("./useVideoCallStore.js").then((module) => {
+        module.useVideoCallStore.getState().setIncomingCall(data);
+      });
+    });
+
+    socket.on("call-answered", (data) => {
+      import("./useVideoCallStore.js").then((module) => {
+        module.useVideoCallStore.getState().handleCallAnswered(data);
+      });
+    });
+
+    socket.on("call-rejected", () => {
+      import("./useVideoCallStore.js").then((module) => {
+        module.useVideoCallStore.getState().handleCallRejected();
+      });
+    });
+
+    socket.on("call-ended", () => {
+      import("./useVideoCallStore.js").then((module) => {
+        module.useVideoCallStore.getState().handleCallEnded();
+      });
+    });
+
+    socket.on("call-failed", (data) => {
+      import("./useVideoCallStore.js").then((module) => {
+        module.useVideoCallStore.getState().handleCallFailed(data);
+      });
+    });
+
+    socket.on("ice-candidate", (data) => {
+      import("./useVideoCallStore.js").then((module) => {
+        module.useVideoCallStore.getState().handleIceCandidate(data);
+      });
     });
   },
   disconnectSocket: () => {
