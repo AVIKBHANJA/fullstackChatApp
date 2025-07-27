@@ -23,6 +23,9 @@ const VideoCallModal = () => {
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.onloadedmetadata = () => {
+        localVideoRef.current.play().catch(console.error);
+      };
       console.log("Local stream set:", localStream);
     }
   }, [localStream]);
@@ -30,6 +33,9 @@ const VideoCallModal = () => {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.onloadedmetadata = () => {
+        remoteVideoRef.current.play().catch(console.error);
+      };
       console.log("Remote stream set:", remoteStream);
     }
   }, [remoteStream]);
@@ -73,6 +79,9 @@ const VideoCallModal = () => {
           ref={remoteVideoRef}
           autoPlay
           playsInline
+          controls={false}
+          onError={(e) => console.error("Remote video error:", e)}
+          onLoadedData={() => console.log("Remote video loaded")}
           className="w-full h-full object-cover"
         />
 
@@ -121,6 +130,9 @@ const VideoCallModal = () => {
               autoPlay
               playsInline
               muted
+              controls={false}
+              onError={(e) => console.error("Local video error:", e)}
+              onLoadedData={() => console.log("Local video loaded")}
               className="w-full h-full object-cover"
             />
           ) : (

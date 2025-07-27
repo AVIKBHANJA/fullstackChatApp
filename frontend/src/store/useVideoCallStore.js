@@ -28,8 +28,9 @@ export const useVideoCallStore = create((set, get) => ({
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         const { currentCall } = get();
-        if (currentCall) {
+        if (currentCall && currentCall.callId) {
           const socket = useAuthStore.getState().socket;
+          console.log("Sending ICE candidate:", event.candidate);
           socket.emit("ice-candidate", {
             callId: currentCall.callId,
             candidate: event.candidate,
@@ -40,7 +41,8 @@ export const useVideoCallStore = create((set, get) => ({
 
     pc.ontrack = (event) => {
       console.log("Received remote stream:", event.streams[0]);
-      set({ remoteStream: event.streams[0] });
+      const [remoteStream] = event.streams;
+      set({ remoteStream });
     };
 
     pc.onconnectionstatechange = () => {
@@ -74,7 +76,10 @@ export const useVideoCallStore = create((set, get) => ({
       set({ localStream, isCallModalOpen: true });
 
       const pc = get().initializePeerConnection();
+
+      // Add local stream tracks to peer connection
       localStream.getTracks().forEach((track) => {
+        console.log("Adding local track:", track.kind);
         pc.addTrack(track, localStream);
       });
 
@@ -84,8 +89,7 @@ export const useVideoCallStore = create((set, get) => ({
       const socket = useAuthStore.getState().socket;
       const { authUser } = useAuthStore.getState();
 
-      // Generate a temporary call ID for tracking
-      const tempCallId = `${authUser._id}-${targetUser._id}-${Date.now()}`;
+      console.log("Sending call offer to:", targetUser.fullName);
 
       socket.emit("call-user", {
         targetUserId: targetUser._id,
@@ -102,13 +106,15 @@ export const useVideoCallStore = create((set, get) => ({
           targetUser,
           type: "outgoing",
           status: "calling",
-          callId: tempCallId, // We'll update this when the call is answered
+          callId: null, // Will be set when call is answered
         },
         isInCall: true,
       });
     } catch (error) {
       console.error("Error starting call:", error);
-      toast.error("Failed to start call. Please check your camera and microphone permissions.");
+      toast.error(
+        "Failed to start call. Please check your camera and microphone permissions."
+      );
     }
   },
 
@@ -118,6 +124,8 @@ export const useVideoCallStore = create((set, get) => ({
       const { incomingCall } = get();
       if (!incomingCall) return;
 
+      console.log("Answering call from:", incomingCall.callerInfo.fullName);
+
       const localStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
@@ -126,11 +134,17 @@ export const useVideoCallStore = create((set, get) => ({
       set({ localStream, isCallModalOpen: true });
 
       const pc = get().initializePeerConnection();
+
+      // Add local stream tracks to peer connection
       localStream.getTracks().forEach((track) => {
+        console.log("Adding local track:", track.kind);
         pc.addTrack(track, localStream);
       });
 
+      // Set remote description first
       await pc.setRemoteDescription(incomingCall.offer);
+
+      // Create and set local description
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -172,19 +186,25 @@ export const useVideoCallStore = create((set, get) => ({
   endCall: () => {
     const { currentCall, localStream, peerConnection } = get();
 
-    if (currentCall) {
+    console.log("Ending call");
+
+    if (currentCall && currentCall.callId) {
       const socket = useAuthStore.getState().socket;
       socket.emit("end-call", { callId: currentCall.callId });
     }
 
     // Stop local stream
     if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
+      localStream.getTracks().forEach((track) => {
+        track.stop();
+        console.log("Stopped local track:", track.kind);
+      });
     }
 
     // Close peer connection
     if (peerConnection) {
       peerConnection.close();
+      console.log("Closed peer connection");
     }
 
     set({
@@ -233,7 +253,9 @@ export const useVideoCallStore = create((set, get) => ({
     const { peerConnection, currentCall } = get();
     if (peerConnection && currentCall) {
       try {
+        console.log("Call answered, setting remote description");
         await peerConnection.setRemoteDescription(data.answer);
+
         set({
           currentCall: {
             ...currentCall,
@@ -253,10 +275,13 @@ export const useVideoCallStore = create((set, get) => ({
     const { peerConnection } = get();
     if (peerConnection && peerConnection.remoteDescription) {
       try {
+        console.log("Adding ICE candidate");
         await peerConnection.addIceCandidate(data.candidate);
       } catch (error) {
         console.error("Error adding ICE candidate:", error);
       }
+    } else {
+      console.log("Received ICE candidate but peer connection not ready");
     }
   },
 
